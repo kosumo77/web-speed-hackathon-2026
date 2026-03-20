@@ -5,11 +5,19 @@ interface Options {
 }
 
 export async function convertImage(file: File, options: Options): Promise<Blob> {
-  // Dynamic import to avoid bundling imagemagick into the main bundle
-  const { initializeImageMagick, ImageMagick } = await import("@imagemagick/magick-wasm");
-  const { default: magickWasm } = await import("@imagemagick/magick-wasm/magick.wasm?binary");
+  // 動的インポート
+  const [
+    { initializeImageMagick, ImageMagick },
+    { default: magickWasmURL }
+  ] = await Promise.all([
+    import("@imagemagick/magick-wasm"),
+    import("@imagemagick/magick-wasm/magick.wasm?binary")
+  ]);
 
-  await initializeImageMagick(magickWasm);
+  // WASMファイルを直接fetchして、レスポンスから初期化（メモリ消費を抑える）
+  const response = await fetch(magickWasmURL);
+  const wasmBytes = new Uint8Array(await response.arrayBuffer());
+  await initializeImageMagick(wasmBytes);
 
   const byteArray = new Uint8Array(await file.arrayBuffer());
 
