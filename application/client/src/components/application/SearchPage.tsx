@@ -53,20 +53,24 @@ const SearchPageComponent = ({
     }
 
     let isMounted = true;
-    analyzeSentiment(parsed.keywords)
-      .then((result) => {
-        if (isMounted) {
-          setIsNegative(result.label === "negative");
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setIsNegative(false);
-        }
-      });
+    // 初期化時の負荷を避けるため、少し待ってから実行
+    const timer = setTimeout(() => {
+      analyzeSentiment(parsed.keywords)
+        .then((result) => {
+          if (isMounted) {
+            setIsNegative(result.label === "negative");
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setIsNegative(false);
+          }
+        });
+    }, 500);
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
     };
   }, [parsed.keywords]);
 

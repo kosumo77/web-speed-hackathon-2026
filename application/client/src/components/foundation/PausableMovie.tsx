@@ -4,20 +4,20 @@ import { getMoviePath, getMoviePreviewPath } from "@web-speed-hackathon-2026/cli
 
 interface Props {
   movieId: string;
+  isFull?: boolean;
 }
 
 /**
  * 動画を MP4 最適化して表示します。
- * 画面内に入るとフル解像度版を裏でプリロードし、クリック時に即座に切り替えます。
+ * 画面内に入った時だけ読み込みと再生を開始する（Lazy Loading）ことで、
+ * 詳細ページ等で画面外の動画が帯域を消費するのを防ぎます。
  */
-export const PausableMovie = ({ movieId }: Props) => {
+export const PausableMovie = ({ movieId, isFull = false }: Props) => {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
   const [isInView, setIsInView] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
-  const previewSrc = getMoviePreviewPath(movieId);
-  const videoSrc = getMoviePath(movieId);
+  const src = isFull ? getMoviePath(movieId) : getMoviePreviewPath(movieId);
 
   // 画面内に入ったかどうかを監視
   useEffect(() => {
@@ -28,7 +28,7 @@ export const PausableMovie = ({ movieId }: Props) => {
       (entries) => {
         if (entries[0].isIntersecting) {
           setIsInView(true);
-          // 一度見えたらプリロードを開始するので、監視を止めても良い（または継続）
+          // 一度画面に入ったら読み込みを開始するので、監視を終了して良い
           observer.unobserve(target);
         }
       },
@@ -43,50 +43,22 @@ export const PausableMovie = ({ movieId }: Props) => {
     setIsLoaded(true);
   }, []);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isFocused) {
-      // プリロードが効いていれば、ここで setIsLoaded(false) にしても一瞬でロードが終わる
-      setIsLoaded(false); 
-      setIsFocused(true);
-    }
-  }, [isFocused]);
-
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full cursor-pointer overflow-hidden bg-cax-surface-subtle"
-      onClick={handleClick}
+      className="relative h-full w-full overflow-hidden bg-cax-surface-subtle"
       style={{ aspectRatio: "1 / 1" }}
     >
       {!isLoaded && (
         <div className="absolute inset-0 animate-pulse bg-cax-surface-subtle" />
       )}
       
-      {/* プレビュー表示（低解像度 5秒 MP4） */}
-      {!isFocused && (
+      {/* 画面内に入った時だけ video タグを生成する */}
+      {isInView && (
         <video
-          key={`preview-${movieId}`}
+          key={src}
           autoPlay
-          className={classNames("h-full w-full object-cover transition-all duration-500", {
-            "opacity-0": !isLoaded,
-            "opacity-100": isLoaded,
-            "blur-[2px] scale-105": true,
-          })}
-          loop
-          muted
-          onLoadedData={handleLoad}
-          playsInline
-          src={previewSrc}
-        />
-      )}
-
-      {/* フル解像度表示（MP4 動画） */}
-      {isFocused && (
-        <video
-          key={`full-${movieId}`}
-          autoPlay
-          className={classNames("h-full w-full object-cover transition-opacity duration-500", {
+          className={classNames("h-full w-full object-cover transition-opacity duration-300", {
             "opacity-0": !isLoaded,
             "opacity-100": isLoaded,
           })}
@@ -94,18 +66,7 @@ export const PausableMovie = ({ movieId }: Props) => {
           muted
           onLoadedData={handleLoad}
           playsInline
-          src={videoSrc}
-        />
-      )}
-
-      {/* バックグラウンド・プリロード用の隠し要素 */}
-      {/* 画面内に入っているが、まだクリックされていない時だけ裏で読み込む */}
-      {isInView && !isFocused && (
-        <video
-          preload="auto"
-          src={videoSrc}
-          style={{ display: "none" }}
-          muted
+          src={src}
         />
       )}
     </div>

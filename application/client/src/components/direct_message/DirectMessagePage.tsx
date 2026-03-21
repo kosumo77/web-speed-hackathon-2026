@@ -1,5 +1,6 @@
 import classNames from "classnames";
-import moment from "moment";
+import dayjs from "dayjs";
+import "dayjs/locale/ja";
 import {
   ChangeEvent,
   useCallback,
@@ -10,6 +11,8 @@ import {
   FormEvent,
   useEffect,
 } from "react";
+
+dayjs.locale("ja");
 
 import { FontAwesomeIcon } from "@web-speed-hackathon-2026/client/src/components/foundation/FontAwesomeIcon";
 import { DirectMessageFormData } from "@web-speed-hackathon-2026/client/src/direct_message/types";
@@ -143,6 +146,7 @@ export const DirectMessagePage = ({
 
             return (
               <li
+                key={message.id}
                 className={classNames(
                   "flex flex-col w-full",
                   isActiveUserSend ? "items-end" : "items-start",
@@ -160,7 +164,7 @@ export const DirectMessagePage = ({
                 </p>
                 <div className="flex gap-1 text-xs">
                   <time dateTime={message.createdAt}>
-                    {moment(message.createdAt).locale("ja").format("HH:mm")}
+                    {dayjs(message.createdAt).format("HH:mm")}
                   </time>
                   {isActiveUserSend && message.isRead && (
                     <span className="text-cax-text-muted">既読</span>
@@ -195,12 +199,11 @@ export const DirectMessagePage = ({
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               rows={textAreaRows}
-              disabled={isSubmitting}
             />
           </div>
           <button
             className="bg-cax-brand text-cax-surface-raised hover:bg-cax-brand-strong rounded-full px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isInvalid || isSubmitting}
+            disabled={isInvalid}
             type="submit"
           >
             <FontAwesomeIcon iconType="arrow-right" styleType="solid" />

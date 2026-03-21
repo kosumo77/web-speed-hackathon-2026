@@ -10,6 +10,7 @@ import { useFetch } from "@web-speed-hackathon-2026/client/src/hooks/use_fetch";
 interface Props {
   src: string;
   alt?: string;
+  isLcpElement?: boolean;
 }
 
 /**
@@ -31,18 +32,18 @@ async function fetchPartialBinary(url: string): Promise<ArrayBuffer> {
 /**
  * アスペクト比を維持したまま、要素のコンテンツボックス全体を埋めるように画像を拡大縮小します
  */
-export const CoveredImage = ({ src, alt: propsAlt = "" }: Props) => {
+export const CoveredImage = ({ src, alt: propsAlt = "", isLcpElement = false }: Props) => {
   const dialogId = useId();
   const [isLoaded, setIsLoaded] = useState(false);
 
   // propsAlt が空の場合、EXIF から alt を取得するために部分フェッチを行う
-  const shouldFetchExif = !propsAlt;
+  // ただし LCP 要素の場合は画像本体のロードを最優先するため、EXIF 取得をスキップする
+  const shouldFetchExif = !propsAlt && !isLcpElement;
   const { data: partialData } = useFetch(shouldFetchExif ? src : "", fetchPartialBinary);
 
   const exifAlt = useMemo(() => {
     if (!partialData) return "";
     try {
-      // piexifjs は文字列形式のバイナリを期待する
       const exif = load(Buffer.from(partialData).toString("binary"));
       const raw = exif?.["0th"]?.[ImageIFD.ImageDescription];
       return raw != null ? new TextDecoder().decode(Buffer.from(raw, "binary")) : "";
@@ -74,7 +75,7 @@ export const CoveredImage = ({ src, alt: propsAlt = "" }: Props) => {
           "opacity-0": !isLoaded,
           "opacity-100": isLoaded,
         })}
-        loading="lazy"
+        loading={isLcpElement ? "eager" : "lazy"}
         onLoad={handleLoad}
         src={src}
       />

@@ -69,46 +69,54 @@ movieRouter.post("/movies", async (req, res) => {
   // 元の GIF を一旦保存
   await fs.writeFile(tempGifPath, req.body);
 
-  // 1. フル解像度 MP4 に変換
-  const convertFull = new Promise<void>((resolve, reject) => {
-    fluentFfmpeg(tempGifPath)
-      .outputOptions([
-        "-c:v libx264",
-        "-pix_fmt yuv420p",
-        "-vf scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        "-crf 28",
-        "-preset fast",
-        "-movflags +faststart"
-      ])
-      .toFormat("mp4")
-      .on("end", () => resolve())
-      .on("error", (err) => reject(err))
-      .save(mp4Path);
-  });
+  // 変換処理を非同期（await しない）で実行
+  (async () => {
+    try {
+      // 1. フル解像度 MP4 に変換（解像度維持・極限スリム化）
+      const convertFull = new Promise<void>((resolve, reject) => {
+        fluentFfmpeg(tempGifPath)
+          .outputOptions([
+            "-c:v libx264",
+            "-pix_fmt yuv420p",
+            "-vf scale=trunc(iw/2)*2:trunc(ih/2)*2", // 解像度は維持しつつ偶数化
+            "-crf 40",
+            "-maxrate 800k",
+            "-bufsize 1600k",
+            "-preset slower",
+            "-movflags +faststart"
+          ])
+          .toFormat("mp4")
+          .on("end", () => resolve())
+          .on("error", (err) => reject(err))
+          .save(mp4Path);
+      });
 
-  // 2. プレビュー用 MP4 (5秒, 低解像度) に変換
-  const convertPreview = new Promise<void>((resolve, reject) => {
-    fluentFfmpeg(tempGifPath)
-      .outputOptions([
-        "-t 5",
-        "-c:v libx264",
-        "-pix_fmt yuv420p",
-        "-vf scale=256:-2",
-        "-crf 32",
-        "-preset fast",
-        "-movflags +faststart"
-      ])
-      .toFormat("mp4")
-      .on("end", () => resolve())
-      .on("error", (err) => reject(err))
-      .save(previewMp4Path);
-  });
+      // 2. プレビュー用 MP4 (5秒, 低解像度) に変換
+      const convertPreview = new Promise<void>((resolve, reject) => {
+        fluentFfmpeg(tempGifPath)
+          .outputOptions([
+            "-t 5",
+            "-c:v libx264",
+            "-pix_fmt yuv420p",
+            "-vf scale=256:-2",
+            "-crf 32",
+            "-preset fast",
+            "-movflags +faststart"
+          ])
+          .toFormat("mp4")
+          .on("end", () => resolve())
+          .on("error", (err) => reject(err))
+          .save(previewMp4Path);
+      });
 
-  // 両方の変換を待つ
-  await Promise.all([convertFull, convertPreview]);
+      await Promise.all([convertFull, convertPreview]);
+      await fs.rename(tempGifPath, finalGifPath);
+      console.log(`Successfully converted movie: ${movieId}`);
+    } catch (err) {
+      console.error(`Background conversion failed for ${movieId}:`, err);
+    }
+  })();
 
-  // 一時ファイルを本番用のパスにリネーム
-  await fs.rename(tempGifPath, finalGifPath);
-
+  // 変換を待たずにレスポンスを返す
   return res.status(200).type("application/json").send({ id: movieId });
 });

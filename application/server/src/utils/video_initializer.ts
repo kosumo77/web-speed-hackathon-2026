@@ -36,20 +36,23 @@ async function processDirectory(dir: string) {
     const mp4Path = path.join(movieDir, `${id}.mp4`);
     const previewPath = path.join(movieDir, `${id}_preview.mp4`);
 
-    // フル解像度 MP4 がない場合に生成
+    // フル解像度 MP4 がない場合に生成（解像度維持・700KB以下ターゲット設定）
     try {
       await fs.access(mp4Path);
     } catch {
-      console.log(`Generating missing MP4 for ${id}...`);
+      console.log(`Generating full-res ultra-optimized MP4 for ${id}...`);
       await convertGifToMp4(gifPath, mp4Path, [
         "-c:v libx264",
         "-pix_fmt yuv420p",
         "-vf scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        "-crf 28",
-        "-preset fast",
+        "-crf 40",
+        "-maxrate 800k",
+        "-bufsize 1600k",
+        "-preset slower",
         "-movflags +faststart"
       ]).catch(err => console.error(`Failed to generate MP4 for ${id}:`, err));
     }
+
 
     // プレビュー用 MP4 がない場合に生成
     try {
