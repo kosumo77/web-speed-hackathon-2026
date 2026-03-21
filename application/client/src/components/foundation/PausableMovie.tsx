@@ -1,90 +1,113 @@
 import classNames from "classnames";
-import { Animator, Decoder } from "gifler";
-import { GifReader } from "omggif";
-import { RefCallback, useCallback, useRef, useState } from "react";
-
-import { AspectRatioBox } from "@web-speed-hackathon-2026/client/src/components/foundation/AspectRatioBox";
-import { FontAwesomeIcon } from "@web-speed-hackathon-2026/client/src/components/foundation/FontAwesomeIcon";
-import { useFetch } from "@web-speed-hackathon-2026/client/src/hooks/use_fetch";
-import { fetchBinary } from "@web-speed-hackathon-2026/client/src/utils/fetchers";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getMoviePath, getMoviePreviewPath } from "@web-speed-hackathon-2026/client/src/utils/get_path";
 
 interface Props {
-  src: string;
+  movieId: string;
 }
 
 /**
- * クリックすると再生・一時停止を切り替えます。
+ * 動画を MP4 最適化して表示します。
+ * 画面内に入るとフル解像度版を裏でプリロードし、クリック時に即座に切り替えます。
  */
-export const PausableMovie = ({ src }: Props) => {
-  const { data, isLoading } = useFetch(src, fetchBinary);
+export const PausableMovie = ({ movieId }: Props) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const previewSrc = getMoviePreviewPath(movieId);
+  const videoSrc = getMoviePath(movieId);
 
-  const animatorRef = useRef<Animator>(null);
-  const canvasCallbackRef = useCallback<RefCallback<HTMLCanvasElement>>(
-    (el) => {
-      animatorRef.current?.stop();
+  // 画面内に入ったかどうかを監視
+  useEffect(() => {
+    const target = containerRef.current;
+    if (!target) return;
 
-      if (el === null || data === null) {
-        return;
-      }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsInView(true);
+          // 一度見えたらプリロードを開始するので、監視を止めても良い（または継続）
+          observer.unobserve(target);
+        }
+      },
+      { rootMargin: "200px" } // 画面に入る少し前から準備開始
+    );
 
-      // GIF を解析する
-      const reader = new GifReader(new Uint8Array(data));
-      const frames = Decoder.decodeFramesSync(reader);
-      const animator = new Animator(reader, frames);
-
-      animator.animateInCanvas(el);
-      animator.onFrame(frames[0]!);
-
-      // 視覚効果 off のとき GIF を自動再生しない
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        setIsPlaying(false);
-        animator.stop();
-      } else {
-        setIsPlaying(true);
-        animator.start();
-      }
-
-      animatorRef.current = animator;
-    },
-    [data],
-  );
-
-  const [isPlaying, setIsPlaying] = useState(true);
-  const handleClick = useCallback(() => {
-    setIsPlaying((isPlaying) => {
-      if (isPlaying) {
-        animatorRef.current?.stop();
-      } else {
-        animatorRef.current?.start();
-      }
-      return !isPlaying;
-    });
+    observer.observe(target);
+    return () => observer.disconnect();
   }, []);
 
-  if (isLoading || data === null) {
-    return null;
-  }
+  const handleLoad = useCallback(() => {
+    setIsLoaded(true);
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isFocused) {
+      // プリロードが効いていれば、ここで setIsLoaded(false) にしても一瞬でロードが終わる
+      setIsLoaded(false); 
+      setIsFocused(true);
+    }
+  }, [isFocused]);
 
   return (
-    <AspectRatioBox aspectHeight={1} aspectWidth={1}>
-      <button
-        aria-label="動画プレイヤー"
-        className="group relative block h-full w-full"
-        onClick={handleClick}
-        type="button"
-      >
-        <canvas ref={canvasCallbackRef} className="w-full" />
-        <div
-          className={classNames(
-            "absolute left-1/2 top-1/2 flex items-center justify-center w-16 h-16 text-cax-surface-raised text-3xl bg-cax-overlay/50 rounded-full -translate-x-1/2 -translate-y-1/2",
-            {
-              "opacity-0 group-hover:opacity-100": isPlaying,
-            },
-          )}
-        >
-          <FontAwesomeIcon iconType={isPlaying ? "pause" : "play"} styleType="solid" />
-        </div>
-      </button>
-    </AspectRatioBox>
+    <div
+      ref={containerRef}
+      className="relative h-full w-full cursor-pointer overflow-hidden bg-cax-surface-subtle"
+      onClick={handleClick}
+      style={{ aspectRatio: "1 / 1" }}
+    >
+      {!isLoaded && (
+        <div className="absolute inset-0 animate-pulse bg-cax-surface-subtle" />
+      )}
+      
+      {/* プレビュー表示（低解像度 5秒 MP4） */}
+      {!isFocused && (
+        <video
+          key={`preview-${movieId}`}
+          autoPlay
+          className={classNames("h-full w-full object-cover transition-all duration-500", {
+            "opacity-0": !isLoaded,
+            "opacity-100": isLoaded,
+            "blur-[2px] scale-105": true,
+          })}
+          loop
+          muted
+          onLoadedData={handleLoad}
+          playsInline
+          src={previewSrc}
+        />
+      )}
+
+      {/* フル解像度表示（MP4 動画） */}
+      {isFocused && (
+        <video
+          key={`full-${movieId}`}
+          autoPlay
+          className={classNames("h-full w-full object-cover transition-opacity duration-500", {
+            "opacity-0": !isLoaded,
+            "opacity-100": isLoaded,
+          })}
+          loop
+          muted
+          onLoadedData={handleLoad}
+          playsInline
+          src={videoSrc}
+        />
+      )}
+
+      {/* バックグラウンド・プリロード用の隠し要素 */}
+      {/* 画面内に入っているが、まだクリックされていない時だけ裏で読み込む */}
+      {isInView && !isFocused && (
+        <video
+          preload="auto"
+          src={videoSrc}
+          style={{ display: "none" }}
+          muted
+        />
+      )}
+    </div>
   );
 };

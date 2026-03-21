@@ -58,23 +58,33 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
     };
   }, []);
 
+  const [candidates, setCandidates] = useState<string[]>([]);
+
+  // 初回に candidates を取得
+  useEffect(() => {
+    const fetchCandidates = async () => {
+      const { suggestions: data } = await fetchJSON<{ suggestions: string[] }>(
+        "/api/v1/crok/suggestions",
+      );
+      setCandidates(data);
+    };
+    fetchCandidates();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
     const updateSuggestions = async () => {
-      if (!tokenizer || !inputValue.trim()) {
+      if (!tokenizer || !inputValue.trim() || candidates.length === 0) {
         setSuggestions([]);
         setQueryTokens([]);
         setShowSuggestions(false);
         return;
       }
 
-      const { suggestions: candidates } = await fetchJSON<{ suggestions: string[] }>(
-        "/api/v1/crok/suggestions",
-      );
-      if (cancelled) {
-        return;
-      }
+      // デバウンス的な待ちを入れる
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      if (cancelled) return;
 
       const tokens = extractTokens(tokenizer.tokenize(inputValue));
       const results = await filterSuggestionsBM25(tokenizer, candidates, tokens);
@@ -86,13 +96,13 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
       setQueryTokens(tokens);
       setSuggestions(results);
       setShowSuggestions(results.length > 0);
-      };
-      void updateSuggestions();
+    };
+    void updateSuggestions();
 
     return () => {
       cancelled = true;
     };
-  }, [inputValue, tokenizer]);
+  }, [inputValue, tokenizer, candidates]);
 
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current;

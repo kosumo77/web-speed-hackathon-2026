@@ -12,6 +12,12 @@ app.set("trust proxy", true);
 
 app.use(compression());
 app.use(sessionMiddleware);
+
+// favicon.ico への 404 エラーを抑制するために 204 (No Content) を返す
+app.get("/favicon.ico", (_req, res) => {
+  res.status(204).end();
+});
+
 app.use(bodyParser.json());
 app.use(bodyParser.raw({ limit: "10mb" }));
 
