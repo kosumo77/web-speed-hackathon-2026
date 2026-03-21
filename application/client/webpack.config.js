@@ -28,7 +28,6 @@ const config = {
   devtool: process.env.NODE_ENV === "production" ? "source-map" : "eval-source-map",
   entry: {
     main: [
-      "jquery-binarytransport",
       path.resolve(SRC_PATH, "./index.css"),
       path.resolve(SRC_PATH, "./buildinfo.ts"),
       path.resolve(SRC_PATH, "./index.tsx"),
@@ -69,9 +68,6 @@ const config = {
   },
   plugins: [
     new webpack.ProvidePlugin({
-      $: "jquery",
-      jQuery: "jquery",
-      "window.jQuery": "jquery",
       Buffer: ["buffer", "Buffer"],
     }),
     new webpack.EnvironmentPlugin({
@@ -131,7 +127,20 @@ const config = {
   optimization: {
     minimize: process.env.NODE_ENV === "production",
     splitChunks: {
-      chunks: "all",
+      chunks: "async", // ここを async に変更
+      cacheGroups: {
+        defaultVendors: {
+          test: /[\\/]node_modules[\\/]/,
+          priority: -10,
+          reuseExistingChunk: true,
+          name: "vendors",
+        },
+        default: {
+          minChunks: 2,
+          priority: -20,
+          reuseExistingChunk: true,
+        },
+      },
     },
   },
   cache: true,

@@ -3,20 +3,24 @@ import { MouseEvent, useCallback, useId, useState } from "react";
 
 import { Button } from "@web-speed-hackathon-2026/client/src/components/foundation/Button";
 import { Modal } from "@web-speed-hackathon-2026/client/src/components/modal/Modal";
+import { getImagePath, getImageThumbnailPath } from "@web-speed-hackathon-2026/client/src/utils/get_path";
 
 interface Props {
-  src: string;
+  imageId: string;
   alt?: string;
   isLcpElement?: boolean;
+  isFull?: boolean;
 }
 
 /**
  * アスペクト比を維持したまま、要素のコンテンツボックス全体を埋めるように画像を拡大縮小します
- * クライアント側での重い EXIF 解析を廃止し、軽量化しました。
+ * タイムライン表示（isFull=false）時は、軽量なサムネイルを読み込んで LCP を改善します。
  */
-export const CoveredImage = ({ src, alt = "", isLcpElement = false }: Props) => {
+export const CoveredImage = ({ imageId, alt = "", isLcpElement = false, isFull = false }: Props) => {
   const dialogId = useId();
   const [isLoaded, setIsLoaded] = useState(false);
+
+  const src = isFull ? getImagePath(imageId) : getImageThumbnailPath(imageId);
 
   // ダイアログの背景をクリックしたときに投稿詳細ページに遷移しないようにする
   const handleDialogClick = useCallback((ev: MouseEvent<HTMLDialogElement>) => {

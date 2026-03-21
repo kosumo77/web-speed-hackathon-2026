@@ -7,9 +7,10 @@ import { getImagePath } from "@web-speed-hackathon-2026/client/src/utils/get_pat
 interface Props {
   images: Models.Image[];
   isLcpElement?: boolean;
+  isFull?: boolean;
 }
 
-export const ImageArea = ({ images, isLcpElement = false }: Props) => {
+export const ImageArea = ({ images, isLcpElement = false, isFull = false }: Props) => {
   return (
     <AspectRatioBox aspectHeight={9} aspectWidth={16}>
       <div className="border-cax-border grid h-full w-full grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-lg border">
@@ -26,9 +27,10 @@ export const ImageArea = ({ images, isLcpElement = false }: Props) => {
               })}
             >
               <CoveredImage
-                src={getImagePath(image.id)}
+                imageId={image.id}
                 alt={image.alt}
                 isLcpElement={isLcpElement}
+                isFull={isFull}
               />
             </div>
           );

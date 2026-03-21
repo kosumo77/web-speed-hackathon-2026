@@ -88,16 +88,8 @@ export const AppContainer = () => {
   const authModalId = useId();
   const newPostModalId = useId();
 
-  if (isLoadingActiveUser) {
-    return (
-      <HelmetProvider>
-        <Helmet>
-          <title>読込中 - CaX</title>
-        </Helmet>
-      </HelmetProvider>
-    );
-  }
-
+  // isLoadingActiveUser によるブロックを廃止
+  // ユーザー情報はバックグラウンドで読み込み、完了次第UIに反映される
   return (
     <HelmetProvider>
       <AppPage
@@ -106,7 +98,7 @@ export const AppContainer = () => {
         newPostModalId={newPostModalId}
         onLogout={handleLogout}
       >
-        <Suspense fallback={<div>読込中...</div>}>
+        <Suspense fallback={<div className="p-4 text-center">読込中...</div>}>
           <Routes>
             <Route element={<TimelineContainer />} path="/" />
             <Route
